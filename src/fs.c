@@ -2,9 +2,10 @@
 char *strchomp(char *str);
 int create_active_socket(char *arg,int tcp_port);
 int create_listen_socket();
-int delete(int control_line,char *filename);
+//int delete(int control_line,char *filename);
 int hostname_to_ip(char * hostname , char* ip);
-void download(int control_line,char *filename,int data_line);
+int upload(int control_line,char *filename,int data_line);
+//void download(int control_line,char *filename,int data_line);
 void senddata(int contrl_line,char buffer[]);
 void sig_h_int(int signo);
 int cli_pid=0;
@@ -19,7 +20,7 @@ int main(int argc,char *argv[]){
 	int control_line, data_line;
 	char ipa[128];
 	if(argc!=3){
-		printf("Usage : ./client <Server ip or hostname> <server port>\n");
+		printf("Usage : ./fs <Server ip or hostname> <server port>\n");
 		return 0;
 	}
 	
@@ -184,7 +185,7 @@ int main(int argc,char *argv[]){
 	* loop to get another input.											*
 	*																		*/
 		
-		printf("CLIENT>");
+		printf("FS>");
 		printf(" ");
 		char buffer[LINE];
 		bzero(buffer,LINE);
@@ -198,60 +199,35 @@ int main(int argc,char *argv[]){
 			continue;
 		}
 		
-	
 		
-		
-	/*				SECTION 2.4b												*
-	* The following code will check weather the user input command is a 		*
-	* delete command. If it is a delete command and arguments are correct 		*
-	* invoke delete function (SEE LINE Z). Otherwise print the usage of 		*
-	* delete command. 															*
+	/*				SECTION 2.4a												*
+	* The following code will check weather the user input command is an 		*
+	* upload command. If it is an upload command and arguments are correct 		*
+	* invoke upload function (SEE LINE Y). Otherwise print the usage of 		*
+	* upload command. 															*
 	*																			*/
 		
-		else if(!strcasecmp(token,"delete")){
+		if(!strcasecmp(token,"upload")){
 			token=strtok(NULL,delemeter);
 			char *filename=token;
 			if(filename!=NULL){
-				int n=delete(control_line,filename);
+				char filepath[256];
+				snprintf(filepath,sizeof(filepath),"u_files/%s",filename);
+				if( access( filepath, F_OK ) != -1 ) {
+					int n=upload(control_line,filename,data_line);
+				}
+				else{
+					printf("No such file in u_files directory\n\n");
+				}
 			}
 			else{
-				printf("Usage: delete <filename>");
+				printf("Usage: upload <filename>");
 				continue;
 			}
 		}
 		
 		
-	/*				SECTION 2.4b												*
-	* The following code will check weather the user input command is a 		*
-	* get-table command. If it is a get-table command send the get-table		*
-	* command throuch senddata function (SEE LINE B)							*
-	*																			*/
-		
-		else if(!strcasecmp(token,"get-table")){
-			
-			printf("\nFile\tIP Address\tPort\tUploaded Time\t\tLast Downloaded    Count\n");
-			printf("----\t----------\t----\t-------------\t\t---------------    -----\n");
-			senddata(control_line,token);
-		}
-		
-		
-	/*				SECTION 2.4d												*
-	* The following code will check weather the user input command is an 		*
-	* download command. If it is an download command and arguments are correct 	*
-	* invoke download function (SEE LINE A). Otherwise print the usage of 		*
-	* download command. 														*
-	*																			*/
-		
-		else if(!strcasecmp(token,"download")){
-			token=strtok(NULL,delemeter);
-			char *filename=token;
-			if(filename!=NULL)
-				download(control_line,filename,data_line);
-			else{
-				printf("Usage: download <filename>");
-				continue;
-			}
-		}
+
 		
 		
 	/*				SECTION 2.4e												*
@@ -290,10 +266,8 @@ int main(int argc,char *argv[]){
 			printf("+----------------------------------------------------+\n");
 			printf("| Command Usage       | Description                  |\n");
 			printf("|---------------------+------------------------------|\n");
-			printf("| delete   <filename> | Delete file from server      |\n");
-			printf("| download <filename> | Download a file to downloads |\n");
-			printf("| get-table           | Get list of available files  |\n");
 			printf("| quit                | Quit client application      |\n");
+			printf("| upload   <filename> | Upload a file in u_files     |\n");
 			printf("+----------------------------------------------------+\n");
 		}
 		
@@ -303,34 +277,25 @@ int main(int argc,char *argv[]){
 }
 
 
-void download(int control_line,char *filename, int data_line){
+int upload(int control_line,char *filename,int data_line){
 	/*																		*
 	* This Function will take connected socket descrptor,an input filename	*
-	* and a passive socket descriptor. It will generate the download 		*
-	* command and send through the `senddata` method.						*
+	* and a passive socket descriptor. It will generate the upload command	*
+	* and send through the `senddata` method.								*
 	*																		*/
-		struct sockaddr_in sin;
+			struct sockaddr_in sin;
 			socklen_t len = sizeof(sin);
 			if (getsockname(data_line, (SA *)&sin, &len) == -1){
    			 	perror("getsockname");
+				return -1;	
 			}
 			int port= ntohs(sin.sin_port);
-		char data[LINE];
-		int l=snprintf(data,LINE,"download %s %d",filename,port);
-		senddata(control_line,data);
-}
-int delete(int control_line,char *filename){
-	/*																		*
-	* This Function will take connected socket descrptor,an input filename	*
-	* and a passive socket descriptor. It will generate the delete command	*
-	* and send through the `senddata` method.								*
-	*																		*/
-		
 			char data[LINE];
-			int n=snprintf(data,LINE,"delete %s",filename);
+			int n=snprintf(data,LINE,"upload %s %d",filename,port);
 			senddata(control_line,data);
 			return 0;
 }
+
 void senddata(int sockfd,char buffer[]){
 	/*																		*
 	* This Function will take connected socket descrptor, a character array *
